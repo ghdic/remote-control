@@ -1,11 +1,26 @@
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (QDialog, QMainWindow, QApplication, QVBoxLayout, QHBoxLayout, QMenuBar,
                             QListWidget, QLabel, QPushButton, QPlainTextEdit, QLineEdit,QGroupBox, QGridLayout, QWidget)
-from PyQt5.QtCore import Qt
-import sys
+from PyQt5.QtCore import Qt, pyqtSlot, QObject, pyqtSignal, QRunnable, QThreadPool
+import sys, time
+import traceback
+
+
+class A:
+    def __init__(self, window):
+        worker = Worker(self.execute_this_fn)
+        self.window = window
+        self.window.threadpool.start(worker)
+
+    def execute_this_fn(self, progress_callback):
+        for n in range(0, 5):
+            time.sleep(1)
+            print(n*100/4)
+            print("hi")
+            #progress_callback.emit(n*100/4)
 
 class Window(QWidget):
-    def __init__(self):
+    def __init__(self, server):
         super().__init__()
         
         self.title = "server"
@@ -14,9 +29,18 @@ class Window(QWidget):
         self.width = 1200
         self.height = 600
         self.iconName = "ico.ico"
+        self.all_text = {}  # PlainText에 있는 텍스트 저장
+        self.cur_ip = ""
+        self.threadpool = QThreadPool()
+        a = A(self)
         self.InitUI()
-        
+        self.server = server
 
+        
+    def test(self, progress_callback):
+        while True:
+            print("hi")
+            time.sleep(10)
     def InitUI(self):
         #self.menuBar = QMenuBar(self)
         #fileMenu = self.menuBar.addMenu("File")
@@ -79,24 +103,134 @@ class Window(QWidget):
         
         self.commandLine = QLineEdit(self)
         self.commandLine.setPlaceholderText("명령어를 입력하세요")
+        self.commandLine.returnPressed.connect(lambda: self.send_command(self.server))
         layout.addWidget(self.func_group)
         layout.addWidget(self.textarea)
         layout.addWidget(self.commandLine)
 
+    @pyqtSlot()
     def listview_clicked(self, server):
+        """ 리스트뷰 클릭시 해당 ip 선택 & textare 변경 """
         item = self.list.currentItem()
-        server.select_ip(str(item.text())) # select ip address 함수
+        item = str(item.text())
+        self.all_text[self.cur_ip] = self.textarea.toPlainText()
+        self.cur_ip = item
+        self.textarea.clear()
+        if self.all_text[self.cur_ip]:
+            self.textarea.appendPlainText(self.all_text[self.cur_ip])
+        server.select_ip(item) # select ip address 함수
 
+    def listview_update(self, ips):
+        self.ip_list.clear()
+        self.ip_list.addItem("")
+        self.ip_list.addItems(ips)
+
+        if not self.cur_ip in ips:
+            self.textarea.clear()
+            self.textarea.appendPlainText(f"[!] {self.cur_ip}와의 연결이 끊겼습니다\n새로운 ip를 선택해주세요\n")
+            self.cur_ip = ""
+            self.ip_list.setCurrentItem(self.ip_list.findItems(""))
+        else:
+            self.ip_list.setCurrentItem(self.ip_list.findItems(self.cur_ip))
+
+        all_text = {}
+        for ip in ips:
+            if self.all_text[ip]:
+                all_text[ip] = self.all_text[ip]
+            else:
+                all_text[ip] = ""
+        self.all_text = all_text
+
+
+        self.textarea.appendPlainText("[*] ip리스트 갱신이 완료되었습니다\n")
+
+    @pyqtSlot()
     def send_message(self):
-        print("hi")
+        """ 기능 6 : 메세지를 보냄"""
+        pass
 
+    @pyqtSlot()
+    def send_command(self, server):
+
+        command = self.commandLine.text()
+        self.commandLine.clear()
+
+        server.control(command)
+        self.textarea.appendPlainText(command + "\n")
+
+    @pyqtSlot()
     def append_message(self, message):
+        """ 메세지를 추가함 """
         self.textarea.appendPlainText(message)
+        # self.all_text[self.cur_ip] += message
 
 
+    def clear_message(self):
+        """ 메세지를 초기화함 """
+        self.textarea.clear()
+        if self.cur_ip:
+            self.all_text[self.cur_ip] = ""
+
+
+class WorkerSignals(QObject):
+    finished = pyqtSignal()
+    error = pyqtSignal(tuple)
+    result = pyqtSignal(object)
+    progress = pyqtSignal(int)
+
+
+class Worker(QRunnable):
+    def __init__(self, fn, *args, **kwargs):
+        super(Worker, self).__init__()
+
+        # Store constructor arguments (re-used for processing)
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = WorkerSignals()
+
+        # Add the callback to our kwargs
+        self.kwargs['progress_callback'] = self.signals.progress
+
+    @pyqtSlot()
+    def run(self):
+        '''
+        Initialise the runner function with passed args, kwargs.
+        '''
+
+        # Retrieve args/kwargs here; and fire processing using them
+        try:
+            result = self.fn(*self.args, **self.kwargs)
+        except:
+            traceback.print_exc()
+            exctype, value = sys.exc_info()[:2]
+            self.signals.error.emit((exctype, value, traceback.format_exc()))
+        else:
+            self.signals.result.emit(result)  # Return the result of the processing
+        finally:
+            self.signals.finished.emit()  # Done
         
 
 
-App = QApplication(sys.argv)
-window = Window()
-sys.exit(App.exec())
+# App = QApplication(sys.argv)
+# window = Window()
+# sys.exit(App.exec())
+
+# def progress_fn(self, n):
+#     print("%d%% done" % n)
+#
+# def execute_this_fn(self, progress_callback):
+#     for n in range(0, 5):
+#         time.sleep(1)
+#         progress_callback.emit(n * 100 / 4)
+#
+#     return "Done."
+#
+# def print_output(self, s):
+#     print(s)
+#
+# def thread_complete(self):
+#     print("THREAD COMPLETE!")
+# worker.signals.result.connect(self.print_output)
+# worker.signals.finished.connect(self.thread_complete)
+# worker.signals.progress.connect(self.progress_fn)
