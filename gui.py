@@ -2,22 +2,9 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (QDialog, QMainWindow, QApplication, QVBoxLayout, QHBoxLayout, QMenuBar,
                             QListWidget, QLabel, QPushButton, QPlainTextEdit, QLineEdit,QGroupBox, QGridLayout, QWidget)
 from PyQt5.QtCore import Qt, pyqtSlot, QObject, pyqtSignal, QRunnable, QThreadPool
-import sys, time
+import sys
+import time
 import traceback
-
-
-class A:
-    def __init__(self, window):
-        worker = Worker(self.execute_this_fn)
-        self.window = window
-        self.window.threadpool.start(worker)
-
-    def execute_this_fn(self, progress_callback):
-        for n in range(0, 5):
-            time.sleep(1)
-            print(n*100/4)
-            print("hi")
-            #progress_callback.emit(n*100/4)
 
 class Window(QWidget):
     def __init__(self, server):
@@ -32,7 +19,6 @@ class Window(QWidget):
         self.all_text = {}  # PlainText에 있는 텍스트 저장
         self.cur_ip = ""
         self.threadpool = QThreadPool()
-        a = A(self)
         self.InitUI()
         self.server = server
 
@@ -109,40 +95,43 @@ class Window(QWidget):
         layout.addWidget(self.commandLine)
 
     @pyqtSlot()
-    def listview_clicked(self, server):
+    def listview_clicked(self):
         """ 리스트뷰 클릭시 해당 ip 선택 & textare 변경 """
-        item = self.list.currentItem()
+        item = self.ip_list.currentItem()
         item = str(item.text())
         self.all_text[self.cur_ip] = self.textarea.toPlainText()
         self.cur_ip = item
         self.textarea.clear()
         if self.all_text[self.cur_ip]:
-            self.textarea.appendPlainText(self.all_text[self.cur_ip])
-        server.select_ip(item) # select ip address 함수
+            self.append_message(self.all_text[self.cur_ip])
+        if not self.cur_ip == "":
+            self.server.select_ip(item) # select ip address 함수
 
     def listview_update(self, ips):
-        self.ip_list.clear()
-        self.ip_list.addItem("")
-        self.ip_list.addItems(ips)
-
-        if not self.cur_ip in ips:
-            self.textarea.clear()
-            self.textarea.appendPlainText(f"[!] {self.cur_ip}와의 연결이 끊겼습니다\n새로운 ip를 선택해주세요\n")
-            self.cur_ip = ""
-            self.ip_list.setCurrentItem(self.ip_list.findItems(""))
-        else:
-            self.ip_list.setCurrentItem(self.ip_list.findItems(self.cur_ip))
-
-        all_text = {}
-        for ip in ips:
-            if self.all_text[ip]:
-                all_text[ip] = self.all_text[ip]
+        try:
+            self.ip_list.clear()
+            self.ip_list.addItems(ips)
+            self.ip_list.addItem("")
+            if not self.cur_ip in ips:
+                self.textarea.clear()
+                self.append_message(f"[!] 연결된 ip가 없습니다\n새로운 ip를 선택해주세요\n")
+                self.cur_ip = ""
+                self.ip_list.setCurrentItem(self.ip_list.findItems("", Qt.MatchExactly)[0])
             else:
-                all_text[ip] = ""
-        self.all_text = all_text
+                self.ip_list.setCurrentItem(self.ip_list.findItems(self.cur_ip, Qt.MatchExactly)[0])
+
+            all_text = {}
+            for ip in ips:
+                if ip in self.all_text.keys():
+                    all_text[ip] = self.all_text[ip]
+                else:
+                    all_text[ip] = ""
+            self.all_text = all_text
 
 
-        self.textarea.appendPlainText("[*] ip리스트 갱신이 완료되었습니다\n")
+            self.append_message("[*] ip리스트 갱신이 완료되었습니다\n")
+        except:
+            print("예외")
 
     @pyqtSlot()
     def send_message(self):
@@ -154,15 +143,18 @@ class Window(QWidget):
 
         command = self.commandLine.text()
         self.commandLine.clear()
-
-        server.control(command)
-        self.textarea.appendPlainText(command + "\n")
+        if self.cur_ip:
+            self.append_message(command + "\n")
+            server.control(command)
+        else:
+            self.append_message(f"ip를 먼저 선택하고 명령어를 입력해주세요 :: {command}\n")
 
     @pyqtSlot()
     def append_message(self, message):
         """ 메세지를 추가함 """
-        self.textarea.appendPlainText(message)
+        self.textarea.insertPlainText(message) # insert vs append "\n"이 없냐 있냐 차이
         # self.all_text[self.cur_ip] += message
+        self.textarea.viewport().update()
 
 
     def clear_message(self):
