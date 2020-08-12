@@ -1,0 +1,5 @@
+﻿# git rm --cached -r * 해야 기존에 있는거 지워짐
+/c#/DrawScreen/bin/Debug
+build/
+dist/
+__pycache__/

