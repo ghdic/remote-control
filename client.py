@@ -138,6 +138,6 @@ class Client:
         
 
 try:
-    c = Client("localhost", 8888)
+    c = Client("125.143.152.181", 8888)
 except Exception:
     print("error")

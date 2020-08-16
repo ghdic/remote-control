@@ -2,17 +2,18 @@ import os
 import cv2
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets                     # uic
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QPushButton, QWidget, 
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QPushButton, QWidget,
                              QLabel, QVBoxLayout)              # +++
 
 from ui_form import Ui_Form                                   # +++
 
+
 class video (QtWidgets.QDialog, Ui_Form):
     def __init__(self):
-        super().__init__()                  
+        super().__init__()
 
 #        uic.loadUi('test2.ui',self)                           # ---
-        self.setupUi(self)                                     # +++
+        self.InitUI(self)                                     # +++
 
         self.control_bt.clicked.connect(self.start_webcam)
         self.capture.clicked.connect(self.capture_image)
@@ -20,7 +21,7 @@ class video (QtWidgets.QDialog, Ui_Form):
 
         self.image_label.setScaledContents(True)
 
-        self.cap = None                                        #  -capture <-> +cap
+        self.cap = None  # -capture <-> +cap
 
         self.timer = QtCore.QTimer(self, interval=5)
         self.timer.timeout.connect(self.update_frame)
@@ -42,7 +43,7 @@ class video (QtWidgets.QDialog, Ui_Form):
         print(image.shape)
         np_bytes = BytesIO()
         np.save(np_bytes, image, allow_pickle=True)
-        np_bytes = np_bytes.getvalue() # 데이터 보내주기
+        np_bytes = np_bytes.getvalue()  # 데이터 보내주기
         # # 데이터 받아서 처리하는 부분
         # load_bytes = BytesIO(np_bytes)
         # simage = np.load(load_bytes, allow_pickle=True)
@@ -53,7 +54,7 @@ class video (QtWidgets.QDialog, Ui_Form):
     @QtCore.pyqtSlot()
     def capture_image(self):
         flag, frame = self.cap.read()
-        path = r'D:\_Qt\Test\testtest'                         # 
+        path = r'D:\_Qt\Test\testtest'                         #
         if flag:
             QtWidgets.QApplication.beep()
             name = "my_image.jpg"
@@ -62,12 +63,13 @@ class video (QtWidgets.QDialog, Ui_Form):
 
     def displayImage(self, img, window=True):
         qformat = QtGui.QImage.Format_Indexed8
-        if len(img.shape)==3 :
-            if img.shape[2]==4:
+        if len(img.shape) == 3:
+            if img.shape[2] == 4:
                 qformat = QtGui.QImage.Format_RGBA8888
             else:
                 qformat = QtGui.QImage.Format_RGB888
-        outImage = QtGui.QImage(img, img.shape[1], img.shape[0], img.strides[0], qformat)
+        outImage = QtGui.QImage(
+            img, img.shape[1], img.shape[0], img.strides[0], qformat)
         outImage = outImage.rgbSwapped()
         if window:
             self.image_label.setPixmap(QtGui.QPixmap.fromImage(outImage))
@@ -87,7 +89,7 @@ class video (QtWidgets.QDialog, Ui_Form):
     def goWindow1(self):
         self.show()
         self.Window.hide()
-### +++ ^^^
+# +++ ^^^
 
 
 class UIWindow(QWidget):
@@ -106,11 +108,10 @@ class UIWindow(QWidget):
         self.setLayout(self.v_box)
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     import sys
     app = QtWidgets.QApplication(sys.argv)
     window = video()
     window.setWindowTitle('main code')
     window.show()
     sys.exit(app.exec_())
-

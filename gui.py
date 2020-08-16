@@ -1,6 +1,6 @@
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (QDialog, QMainWindow, QApplication, QVBoxLayout, QHBoxLayout, QMenuBar,
-                            QListWidget, QLabel, QPushButton, QPlainTextEdit, QLineEdit,QGroupBox, QGridLayout, QWidget, QMessageBox)
+                             QListWidget, QLabel, QPushButton, QPlainTextEdit, QLineEdit, QGroupBox, QGridLayout, QWidget, QMessageBox)
 from PyQt5.QtCore import Qt, pyqtSlot, QObject, pyqtSignal, QRunnable, QThreadPool
 import sys
 import os
@@ -8,10 +8,11 @@ import time
 import traceback
 import qdarkstyle
 
+
 class Window(QWidget):
     def __init__(self, server):
         super().__init__()
-        
+
         self.title = "server"
         self.left = 200
         self.top = 200
@@ -24,7 +25,6 @@ class Window(QWidget):
         self.InitUI()
         self.server = server
         self.server.App.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
-
 
     def InitUI(self):
         #self.menuBar = QMenuBar(self)
@@ -76,7 +76,7 @@ class Window(QWidget):
         self.liveStreamBtn = QPushButton("라이브 스크린 & 캠")
         self.sendKeyBtn = QPushButton("키보드 제어")
         self.sendMouseBtn = QPushButton("마우스 제어")
-        
+
         self.func_gridLayout.addWidget(self.fileUploadBtn, 0, 0)
         self.func_gridLayout.addWidget(self.fileDownloadBtn, 0, 1)
         self.func_gridLayout.addWidget(self.screenShotBtn, 0, 2)
@@ -91,10 +91,11 @@ class Window(QWidget):
 
         self.textarea = QPlainTextEdit(self)
         self.textarea.setReadOnly(True)
-        
+
         self.commandLine = QLineEdit(self)
         self.commandLine.setPlaceholderText("명령어를 입력하세요")
-        self.commandLine.returnPressed.connect(lambda: self.send_command(self.server))
+        self.commandLine.returnPressed.connect(
+            lambda: self.send_command(self.server))
         layout.addWidget(self.func_group)
         layout.addWidget(self.textarea)
         layout.addWidget(self.commandLine)
@@ -110,7 +111,7 @@ class Window(QWidget):
         if self.all_text[self.cur_ip]:
             self.append_message(self.all_text[self.cur_ip])
         if not self.cur_ip == "":
-            self.server.select_ip(item) # select ip address 함수
+            self.server.select_ip(item)  # select ip address 함수
 
     def listview_update(self, ips):
         try:
@@ -122,9 +123,11 @@ class Window(QWidget):
                 self.textarea.clear()
                 self.append_message(f"[!] 연결된 ip가 없습니다\n새로운 ip를 선택해주세요\n")
                 self.cur_ip = ""
-                self.ip_list.setCurrentItem(self.ip_list.findItems("", Qt.MatchExactly)[0])
+                self.ip_list.setCurrentItem(
+                    self.ip_list.findItems("", Qt.MatchExactly)[0])
             else:
-                self.ip_list.setCurrentItem(self.ip_list.findItems(self.cur_ip, Qt.MatchExactly)[0])
+                self.ip_list.setCurrentItem(
+                    self.ip_list.findItems(self.cur_ip, Qt.MatchExactly)[0])
 
             all_text = {}
             for ip in ips:
@@ -133,7 +136,6 @@ class Window(QWidget):
                 else:
                     all_text[ip] = ""
             self.all_text = all_text
-
 
             self.append_message("[*] ip리스트 갱신이 완료되었습니다\n")
         except:
@@ -154,14 +156,15 @@ class Window(QWidget):
             server.control(command)
         else:
             self.append_message(f"ip를 먼저 선택하고 명령어를 입력해주세요 :: {command}\n")
-        self.textarea.verticalScrollBar().setValue(self.textarea.verticalScrollBar().maximum())
+        self.textarea.verticalScrollBar().setValue(
+            self.textarea.verticalScrollBar().maximum())
 
     @pyqtSlot()
     def append_message(self, message):
         """ 메세지를 추가함 """
-        self.textarea.appendPlainText(message) # insert vs append "\n"이 없냐 있냐 & 자동 스크롤이 안되냐 되냐 차이
+        self.textarea.appendPlainText(
+            message)  # insert vs append "\n"이 없냐 있냐 & 자동 스크롤이 안되냐 되냐 차이
         self.textarea.viewport().update()
-
 
     def clear_message(self):
         """ 메세지를 초기화함 """
@@ -171,7 +174,6 @@ class Window(QWidget):
 
     def appear_msgbox(self, title, msg):
         QMessageBox.about(self, title, msg)
-
 
 
 class WorkerSignals(QObject):
@@ -203,6 +205,7 @@ class Worker(QRunnable):
             exctype, value = sys.exc_info()[:2]
             self.signals.error.emit((exctype, value, traceback.format_exc()))
         else:
-            self.signals.result.emit(result)  # Return the result of the processing
+            # Return the result of the processing
+            self.signals.result.emit(result)
         finally:
             self.signals.finished.emit()  # Done

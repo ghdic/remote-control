@@ -21,10 +21,10 @@ class Server(QObject):
 
         self.App = QApplication(sys.argv)
         self.window = Window(self)
-        worker = Worker(self.run)
-        worker.signals.result.connect(self.upade_list)
-        worker.signals.progress.connect(self.progress_fn)
-        self.window.threadpool.start(worker)
+        self.sock = self.create_socket(self.host_port)
+        self.working_thread(self.connect_socket, self.progress_fn, self.upade_list, self.thread_complete)
+
+
 
 
     def __del__(self):
@@ -33,6 +33,12 @@ class Server(QObject):
             conn["con"].shutdown(2)
             conn["con"].close()
 
+    def working_thread(self, func, progress, result, finish):
+        worker = Worker(func)
+        worker.signals.progress.connect(progress)
+        worker.signals.result.connect(result)
+        worker.signals.finished.connect(finish)
+        self.window.threadpool.start(worker)
 
     def progress_fn(self, msg):
         self.window.append_message(msg)
@@ -40,37 +46,40 @@ class Server(QObject):
     def upade_list(self, keys):
         self.window.listview_update(keys)
 
-    def run(self, progress_callback):
-        """ 소켓을 생성하여 연결한다 """
-        while True:
-            try:
-                sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                sock.bind((self.host_ip, self.host_port))
-                sock.listen(20)
-            except socket.error as msg:
-                progress_callback.emit("소켓 생성 에러 : " + str(msg) + "")
-                progress_callback.emit("10초 후 다시 시도 합니다... ")
-                time.sleep(10)
-                continue
+    def thread_complete(self):
+        self.working_thread(self.connect_socket, self.progress_fn, self.upade_list, self.thread_complete)
 
-            progress_callback.emit(f"[*] 서버가 시작 됩니다 > {self.host_ip}:{self.host_port} | {datetime.now().strftime('%H:%M:%S')}")
+    def create_socket(self, port):
+        try:
+            sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((self.host_ip, port))
+            sock.listen(20)
+        except socket.error as msg:
+            self.window.append_message("소켓 생성 에러 : " + str(msg) + "")
+            self.window.append_message.emit("10초 후 다시 시도 합니다... ")
+            time.sleep(10)
+            self.create_socket()
 
-            while True:
-                try:
-                    conn, address = sock.accept()
-                    sock.setblocking(1)
-                    controller = SendRecv(conn)
-                    progress_callback.emit(f"[!]새로운 클라이언트가 연결되었습니다 => [{address[0]}:{str(address[1])}]")
-                    controller.send(":codec".encode("utf-8"))
-                    codec = controller.recv().decode("utf-8")
-                    address = f"{address[0]}:{str(address[1])}"
-                    self.all_connections[address] = {"controller": controller, "con": conn, "codec": codec}
-                    progress_callback.emit(f"{address} 연결 성공")
-                    return self.refresh(progress_callback)
-                except:
-                    progress_callback.emit(f"{address} 연결 실패")
-                    return []
+        return sock
+
+        self.window.append_message(f"[*] 서버가 시작 됩니다 > {self.host_ip}:{self.host_port} | {datetime.now().strftime('%H:%M:%S')}")
+
+    def connect_socket(self, progress_callback):
+        try:
+            conn, address = self.sock.accept()
+            self.sock.setblocking(1)
+            controller = SendRecv(conn)
+            progress_callback.emit(f"[!]새로운 클라이언트가 연결되었습니다 => [{address[0]}:{str(address[1])}]")
+            controller.send(":codec".encode("utf-8"))
+            codec = controller.recv().decode("utf-8")
+            address = f"{address[0]}:{str(address[1])}"
+            self.all_connections[address] = {"controller": controller, "con": conn, "codec": codec}
+            progress_callback.emit(f"{address} 연결 성공")
+            return self.refresh(progress_callback)
+        except:
+            progress_callback.emit(f"{address} 연결 실패")
+            return []
 
 
     def select_ip(self, target_ip):

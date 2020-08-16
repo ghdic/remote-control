@@ -14,3 +14,4 @@ pyqt5를 이용해 GUI으로 환경으로 socket통신으로 reverse_shell을 �
 * 버튼 event 전부 작동하게
 * 키보드 제어(다중입력도 가능하게 되려나?)
 * 마우스 제어(상하좌우키로 움직이기)
+* upload, download 스레드처리
